@@ -4,7 +4,16 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import bun from 'bun'
 
+const root = path.join(process.cwd(), bun.argv[2] || '')
+console.log(root)
+
+if (!(await fs.exists(root))) {
+  await fs.mkdir(root, { recursive: true })
+  console.log(`created ${root}`)
+}
+
 const mkdir = async (filepath: string) => {
+  filepath = path.join(root, filepath)
   if (await fs.exists(filepath)) {
     return
   }
@@ -13,6 +22,7 @@ const mkdir = async (filepath: string) => {
 }
 
 const writeFile = async (filepath: string, data: string) => {
+  filepath = path.join(root, filepath)
   if (await fs.exists(filepath)) {
     return
   }
@@ -21,12 +31,11 @@ const writeFile = async (filepath: string, data: string) => {
 }
 
 const spawn = async (cmd: string[]) => {
-  const proc = bun.spawn(cmd)
+  const proc = bun.spawn(cmd, {
+    cwd: root,
+  })
   await proc.exited
 }
-
-const root = process.cwd()
-console.log(root)
 
 const package_json_path = path.join(root, 'package.json')
 
