@@ -1,0 +1,15 @@
+{
+  "name": "create-ers-web",
+  "bin": {
+    "create-ers-web": "create-ers-web.ts"
+  },
+  "scripts": {
+    "demo": "rm -rf test/ && mkdir test/ && cp create-ers-web.ts test/ && cd test/ && bun create-ers-web.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
