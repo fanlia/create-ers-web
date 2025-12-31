@@ -42,6 +42,7 @@ if (await fs.exists(package_json_path)) {
 await mkdir('config')
 await mkdir('src/graphql')
 await mkdir('src/restful')
+await mkdir('src/websocket')
 await mkdir('src/web/pages')
 
 await writeFile(
@@ -234,6 +235,34 @@ export const restful = {
 `,
 )
 
+await writeFile(
+  'src/websocket/index.ts',
+  `
+import type { ServerWebSocket, BunRequest, Server } from "bun"
+
+export const upgrade = {
+  '/channel': async (req: BunRequest, server: Server<undefined>) => {
+    if (server.upgrade(req)) {
+      return; // do not return a Response
+    }
+    return new Response("Upgrade failed", { status: 500 });
+  },
+}
+
+export const websocket = {
+  message(ws: ServerWebSocket, message: string | Buffer) {
+    ws.send(message)
+  },
+  open(ws: ServerWebSocket) {
+    console.log('ws connected')
+  },
+  close(ws: ServerWebSocket) {
+    console.log('ws closed')
+  },
+}
+`,
+)
+
 await writeFile('src/web/logo.svg', ``)
 
 await writeFile(
@@ -317,6 +346,7 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from 'react-router'
+import { useEffect, useState, type FormEvent } from 'react'
 
 export const path = 'about'
 
@@ -333,11 +363,32 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export function Component() {
+  const [socket, setSocket] = useState<WebSocket | null>(null)
+  useEffect(() => {
+    const socket = new WebSocket('ws://localhost:3000/channel')
+
+    socket.addEventListener('message', (event) => {
+      console.log(event.data)
+    })
+
+    setSocket(socket)
+
+    return () => socket.close()
+  }, [])
+
+  const handleSend = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const data = Object.fromEntries(fd.entries())
+    socket?.send(JSON.stringify(data))
+  }
+
   const data = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   return (
     <div>
       <h1>{data.message}</h1>
+      <h2>api</h2>
       <Form method="post">
         <input type="text" name="title" className="input" />
         <button type="submit" className="btn">
@@ -345,6 +396,13 @@ export function Component() {
         </button>
       </Form>
       {actionData ? <p>{actionData.title} updated</p> : null}
+      <h2>websocket</h2>
+      <form method="post" onSubmit={handleSend}>
+        <input type="text" name="message" className="input" />
+        <button type="submit" className="btn">
+          Send
+        </button>
+      </form>
     </div>
   )
 }
@@ -408,13 +466,17 @@ import { serve } from 'bun'
 import index from './src/web/index.html'
 import { restful } from './src/restful'
 import { graphql } from './src/graphql'
+import { upgrade, websocket } from './src/websocket'
 
 const server = serve({
+  development: process.env.NODE_ENV != 'production',
   routes: {
     ...restful,
     ...graphql,
+    ...upgrade,
     '/*': index,
   },
+  websocket,
 })
 
 console.log(\`http server started at \${server.url}\`)
@@ -436,7 +498,8 @@ const { default: pkg } = await import(package_json_path, {
   with: { type: 'json' },
 })
 pkg.scripts = pkg.scripts || {}
-pkg.scripts.start = 'bun --watch index.ts'
+pkg.scripts.dev = 'bun --watch index.ts'
+pkg.scripts.start = 'NODE_ENV=production bun index.ts'
 pkg.type = 'module'
 pkg.main = 'index.ts'
 
