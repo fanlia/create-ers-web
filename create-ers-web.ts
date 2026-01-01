@@ -493,6 +493,34 @@ console.log(\`http server started at \${server.url}\`)
 )
 
 await writeFile(
+  '.example.env',
+  `
+DATABASE_URL="postgresql://root:123456@localhost:5432/demo"
+`,
+)
+
+await writeFile(
+  'docker-compose.yml',
+  `
+services:
+  adminer:
+    image: adminer
+    ports:
+      - 30080:8080
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+  pgvector:
+    image: pgvector/pgvector:pg18
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: demo
+`,
+)
+
+await writeFile(
   'bunfig.toml',
   `
 [serve.static]
@@ -500,6 +528,7 @@ plugins = ["bun-plugin-tailwind"]
 `,
 )
 
+await spawn(['cp', '.example.env', '.env'])
 await spawn(['bun', 'init', '-y'])
 await spawn(['rm', 'CLAUDE.md'])
 
