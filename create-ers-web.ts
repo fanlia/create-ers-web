@@ -164,23 +164,15 @@ export const echo = async (
 )
 
 await writeFile(
-  'src/graphql/graphql.d.ts',
+  'src/graphql/schema.ts',
   `
-declare module '*.graphql' {
-  const value: string
-  export default value
-}
-`,
-)
-
-await writeFile(
-  'src/graphql/schema.graphql',
-  `
+export const typeDefs = \`
 scalar JSON
 
 type Query {
   echo(message: JSON!): JSON
 }
+\`
 `,
 )
 
@@ -194,10 +186,11 @@ export default {}
 await writeFile(
   'src/graphql/index.ts',
   `
+import { fileURLToPath } from 'node:url'
 import type { BunRequest } from 'bun'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import { createHandler } from 'graphql-http/lib/use/fetch'
-import typeDefs from './schema.graphql' with { type: 'text' }
+import { typeDefs } from './schema.ts'
 import * as rootValue from './api'
 import resolvers from './resolver'
 
@@ -525,6 +518,27 @@ await writeFile(
   `
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
+`,
+)
+
+await writeFile(
+  'ecosystem.config.cjs',
+  `
+const pkg = require('./package.json')
+
+module.exports = {
+  apps: [
+    {
+      name: pkg.name,
+      script: pkg.main,
+      interpreter: 'bun',
+      env: {
+        PORT: 3000,
+        NODE_ENV: 'production',
+      },
+    },
+  ],
+}
 `,
 )
 
