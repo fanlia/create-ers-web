@@ -48,7 +48,7 @@ if (await fs.exists(package_json_path)) {
   console.log('package.json already existed, skip creating')
   process.exit()
 }
-await mkdir('config')
+
 await mkdir('src/graphql')
 await mkdir('src/restful')
 await mkdir('src/websocket')
