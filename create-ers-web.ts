@@ -488,6 +488,13 @@ export const create_worker = (
 )
 
 await writeFile(
+  'src/upload/.gitignore',
+  `
+files/
+`,
+)
+
+await writeFile(
   'src/upload/index.ts',
   `
 import type { BunRequest } from 'bun'
