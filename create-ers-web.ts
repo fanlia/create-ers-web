@@ -53,6 +53,7 @@ await mkdir('src/graphql')
 await mkdir('src/restful')
 await mkdir('src/websocket')
 await mkdir('src/web/pages')
+await mkdir('src/queue')
 
 await writeFile(
   'src/graphql/graphiql.html',
@@ -462,6 +463,30 @@ export function Component() {
 )
 
 await writeFile(
+  'src/queue/index.ts',
+  `
+import { RedisClient } from 'bun'
+import RedisMemoryServer from 'redis-memory-server'
+import { Queue, Worker, type Processor } from 'bullmq'
+
+const redisServer = new RedisMemoryServer()
+
+const host = await redisServer.getHost()
+const port = await redisServer.getPort()
+
+export const redis_client = new RedisClient(\`redis://\${host}:\${port}\`)
+
+export const create_queue = (name: string) =>
+  new Queue(name, { connection: { host, port } })
+
+export const create_worker = (
+  name: string,
+  worker: Processor<any, any, string>,
+) => new Worker(name, worker, { connection: { host, port } })
+`,
+)
+
+await writeFile(
   'index.ts',
   `
 import { serve } from 'bun'
@@ -580,6 +605,8 @@ await spawn([
   'daisyui',
   '@graphql-tools/schema',
   'graphql-http',
+  'redis-memory-server',
+  'bullmq',
 ])
 
 await spawn([
