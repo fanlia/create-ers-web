@@ -3,8 +3,20 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import bun from 'bun'
+import { parseArgs } from 'node:util'
 
-const root = path.join(process.cwd(), bun.argv[2] || '')
+const flags = parseArgs({
+  args: Bun.argv,
+  options: {
+    redis: {
+      type: 'boolean',
+    },
+  },
+  strict: true,
+  allowPositionals: true,
+})
+
+const root = path.join(process.cwd(), flags.positionals[2] || '')
 console.log(root)
 
 if (!(await fs.exists(root))) {
@@ -668,9 +680,11 @@ await spawn([
   'daisyui',
   '@graphql-tools/schema',
   'graphql-http',
-  'redis-memory-server',
-  'bullmq',
 ])
+
+if (flags.values.redis) {
+  await spawn(['bun', 'add', 'redis-memory-server', 'bullmq'])
+}
 
 await spawn([
   'bun',
