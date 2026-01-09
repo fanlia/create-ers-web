@@ -54,6 +54,7 @@ await mkdir('src/restful')
 await mkdir('src/websocket')
 await mkdir('src/web/pages')
 await mkdir('src/queue')
+await mkdir('src/upload')
 
 await writeFile(
   'src/graphql/graphiql.html',
@@ -487,11 +488,65 @@ export const create_worker = (
 )
 
 await writeFile(
+  'src/upload/index.ts',
+  `
+import type { BunRequest } from 'bun'
+import { mkdir } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+
+const uploadDir = resolve(import.meta.dirname, './files')
+
+const getFileName = (file: File): { dir: string; name: string } => {
+  const name = file.name
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return {
+    dir: \`\${year}/\${month}/\${day}\`,
+    name: \`\${date.valueOf()}-\${name}\`,
+  }
+}
+
+export const upload = {
+  '/file/*': {
+    GET: async (req: BunRequest) => {
+      const { pathname } = new URL(req.url)
+      const filename = pathname.replace('/file', '')
+      const filepath = join(uploadDir, filename)
+      const file = Bun.file(filepath)
+      return new Response(file)
+    },
+  },
+  '/upload': {
+    POST: async (req: BunRequest) => {
+      const formdata = await req.formData()
+      const file = formdata.get('file') as File
+      const { name, dir } = getFileName(file)
+      const dirpath = join(uploadDir, dir)
+      const filepath = join(dirpath, name)
+      const pathname = \`/file/\${dir}/\${name}\`
+      await mkdir(dirpath, { recursive: true })
+      await Bun.write(filepath, file)
+
+      return Response.json([
+        {
+          path: pathname,
+        },
+      ])
+    },
+  },
+}
+`,
+)
+
+await writeFile(
   'index.ts',
   `
 import { serve } from 'bun'
 import index from './src/web/index.html'
 import { restful } from './src/restful'
+import { upload } from './src/upload'
 import { graphql } from './src/graphql'
 import { upgrade, websocket } from './src/websocket'
 
@@ -499,6 +554,7 @@ const server = serve({
   development: process.env.NODE_ENV != 'production',
   routes: {
     ...restful,
+    ...upload,
     ...graphql,
     ...upgrade,
     '/*': index,
