@@ -7,11 +7,7 @@ import { parseArgs } from 'node:util'
 
 const flags = parseArgs({
   args: Bun.argv,
-  options: {
-    redis: {
-      type: 'boolean',
-    },
-  },
+  options: {},
   strict: true,
   allowPositionals: true,
 })
@@ -478,24 +474,17 @@ export function Component() {
 await writeFile(
   'src/queue/index.ts',
   `
-import { RedisClient } from 'bun'
-import RedisMemoryServer from 'redis-memory-server'
 import { Queue, Worker, type Processor } from 'bullmq'
 
-const redisServer = new RedisMemoryServer()
-
-const host = await redisServer.getHost()
-const port = await redisServer.getPort()
-
-export const redis_client = new RedisClient(\`redis://\${host}:\${port}\`)
+const url = process.env.REDIS_URL
 
 export const create_queue = (name: string) =>
-  new Queue(name, { connection: { host, port } })
+  new Queue(name, { connection: { url} })
 
 export const create_worker = (
   name: string,
   worker: Processor<any, any, string>,
-) => new Worker(name, worker, { connection: { host, port } })
+) => new Worker(name, worker, { connection: { url } })
 `,
 )
 
@@ -589,6 +578,7 @@ await writeFile(
   '.example.env',
   `
 DATABASE_URL="postgresql://root:123456@localhost:5432/demo"
+REDIS_URL="redis://localhost:6739"
 `,
 )
 
@@ -610,6 +600,10 @@ services:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: demo
+  redis:
+    image: redis
+    ports:
+      - '6379:6379'
 `,
 )
 
@@ -680,11 +674,8 @@ await spawn([
   'daisyui',
   '@graphql-tools/schema',
   'graphql-http',
+  'bullmq',
 ])
-
-if (flags.values.redis) {
-  await spawn(['bun', 'add', 'redis-memory-server', 'bullmq'])
-}
 
 await spawn([
   'bun',
